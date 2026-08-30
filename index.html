@@ -50,7 +50,7 @@ body{background:#1a1a2e;color:#e8e8e8;font-family:-apple-system,BlinkMacSystemFo
 <body>
 <div class="header">
 <h1>足彩赔率监控</h1>
-<div class="meta"><span class="upd">更新: 2026-08-30 13:55:06</span><span>213 场</span></div>
+<div class="meta"><span class="upd">更新: 2026-08-30 13:59:42</span><span>213 场</span></div>
 <input class="search" type="text" placeholder="搜索球队..." oninput="filterCards(this.value)">
 <div class="countdown" id="cd">自动刷新中</div>
 </div>
@@ -120,6 +120,26 @@ function restoreState(){
   try {
     var cards = JSON.parse(localStorage.getItem('odds_cards') || '[]');
     var dates = JSON.parse(localStorage.getItem('odds_dates') || '[]');
+    var hadDates = localStorage.getItem('odds_dates') !== null;
+    if(hadDates){
+      document.querySelectorAll('.date-group').forEach(function(g){
+        g.classList.remove('expanded');
+        var dc = g.querySelector('.date-cards');
+        var arrow = g.querySelector('.date-arrow');
+        if(dc) dc.style.display = 'none';
+        if(arrow) arrow.innerHTML = '&#9654;';
+      });
+      dates.forEach(function(d){
+        var g = document.querySelector('.date-group[data-date="' + d + '"]');
+        if(g){
+          g.classList.add('expanded');
+          var dc = g.querySelector('.date-cards');
+          var arrow = g.querySelector('.date-arrow');
+          if(dc) dc.style.display = 'block';
+          if(arrow) arrow.innerHTML = '&#9660;';
+        }
+      });
+    }
     cards.forEach(function(num){
       document.querySelectorAll('.card').forEach(function(c){
         var n = c.querySelector('.num');
@@ -129,18 +149,10 @@ function restoreState(){
         }
       });
     });
-    dates.forEach(function(d){
-      var g = document.querySelector('.date-group[data-date="' + d + '"]');
-      if(g){
-        g.classList.add('expanded');
-        var dc = g.querySelector('.date-cards');
-        var arrow = g.querySelector('.date-arrow');
-        if(dc) dc.style.display = 'block';
-        if(arrow) arrow.innerHTML = '&#9660;';
-      }
-    });
     var scroll = parseInt(localStorage.getItem('odds_scroll') || '0');
-    if(scroll > 0) window.scrollTo(0, scroll);
+    if(scroll > 0){
+      setTimeout(function(){ window.scrollTo(0, scroll); }, 80);
+    }
   } catch(e){}
 }
 var cd = document.getElementById('cd');
@@ -148,14 +160,26 @@ var now = new Date();
 var hour = now.getHours();
 if(hour >= 10 && hour < 24){
   var sec = 300;
+  var lastActivity = Date.now();
+  var delayCount = 0;
+  document.addEventListener('scroll', function(){ lastActivity = Date.now(); }, {passive:true});
+  document.addEventListener('touchstart', function(){ lastActivity = Date.now(); }, {passive:true});
+  document.addEventListener('click', function(){ lastActivity = Date.now(); }, {passive:true});
   var cdTimer = setInterval(function(){
     sec--;
     if(sec <= 0){
-      clearInterval(cdTimer);
-      saveState();
-      location.reload();
+      if(Date.now() - lastActivity < 15000 && delayCount < 3){
+        sec = 60;
+        delayCount++;
+        cd.textContent = '浏览中，刷新延迟 60s';
+      }else{
+        clearInterval(cdTimer);
+        saveState();
+        location.reload();
+      }
+    }else{
+      cd.textContent = '下次刷新: ' + Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0');
     }
-    cd.textContent = '下次刷新: ' + Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0');
   }, 1000);
 } else {
   cd.textContent = '采集时段 10:00-23:55';
